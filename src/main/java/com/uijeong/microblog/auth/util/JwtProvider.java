@@ -8,10 +8,17 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 /**
@@ -39,8 +46,9 @@ public class JwtProvider {
 
     /**
      * 사용자 ID를 기반으로 JWT 토큰 생성
+     *
      * @param memberId 사용자 식별자
-     * @param role 사용자 역할
+     * @param role     사용자 역할
      * @return JWT 문자열
      */
     public String generateToken(Long memberId, String nickname, String role) {
@@ -58,17 +66,61 @@ public class JwtProvider {
     }
 
     /**
-     * JWT를 파싱하여 해당 토큰의 subject(memberId)를 추출
+     * 토큰에서 Authentication 객체 생성
      *
-     * @param token 클라이언트로 전달받은 JWT
-     * @return memberId (String 타입)
+     * @param token JWT 토큰
+     * @return Authentication 객체
      */
-    public String getMemberIdFromToken(String token) {
+    public Authentication getAuthentication(String token) {
         Claims claims = parseClaims(token);
-        return claims.getSubject(); // memberId 반환
+        String memberId = claims.getSubject();
+        String role = claims.get("role", String.class);
+
+        // Security 인증 객체 생성 (실제로는 UserDetailsService와 연동하는 경우도 많음)
+        UserDetails userDetails = new User(memberId, "", List.of(new SimpleGrantedAuthority(role)));
+        return new UsernamePasswordAuthenticationToken(userDetails, "",
+            userDetails.getAuthorities());
     }
 
+    /**
+     * 토큰 유효성 검사
+     *
+     * @param token 검사할 토큰
+     * @return 검사 결과
+     */
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                .setSigningKey(key)          // 서명 키 설정
+                .build()
+                .parseClaimsJws(token);      // 실제로 토큰 파싱 시도
 
+            return true;
+        } catch (SecurityException | MalformedJwtException e) {
+            log.warn("JWT 포맷이 유효하지 않습니다.");
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT 토큰이 만료되었습니다.");
+        } catch (UnsupportedJwtException e) {
+            log.warn("지원되지 않는 JWT 토큰 입니다.");
+        } catch (IllegalArgumentException e) {
+            log.warn("JWT claims(페이로드) 문자열이 비어있습니다.");
+        }
+        return false;
+    }
+
+    /**
+     * 토큰 추출
+     *
+     * @param request HTTP 서블릿 요청
+     * @return JWT 토큰 문자열
+     */
+    public String resolveToken(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
+    }
 
     /**
      * 내부적으로 JWT에서 Claims(페이로드)만 추출
