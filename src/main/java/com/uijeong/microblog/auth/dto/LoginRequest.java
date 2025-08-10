@@ -6,6 +6,9 @@ package com.uijeong.microblog.auth.dto;
  * @param email    이메일
  * @param password 비밀번호
  */
-public record LoginRequest(String email, String password) {
+public record LoginRequest(
+    String email,
+    String password
+) {
 
 }

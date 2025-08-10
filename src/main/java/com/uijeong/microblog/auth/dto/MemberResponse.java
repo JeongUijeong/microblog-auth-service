@@ -1,5 +1,7 @@
 package com.uijeong.microblog.auth.dto;
 
+import java.util.List;
+
 /**
  * member-service에서 받아올 사용자 정보 DTO
  *
@@ -8,15 +10,16 @@ package com.uijeong.microblog.auth.dto;
  * @param password 비밀번호
  * @param nickname 닉네임
  * @param profileImageUrl 프로필 이미지 URL
- * @param role 역할
+ * @param roles 역할 리스트
  */
+
 public record MemberResponse(
     Long id,
     String email,
     String password,
     String nickname,
     String profileImageUrl,
-    String role
+    List<String> roles
 ) {
 
 }

@@ -4,6 +4,9 @@ import com.uijeong.microblog.auth.filter.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -26,16 +29,19 @@ public class SecurityConfig {
     /**
      * Security 필터 체인
      */
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(AbstractHttpConfigurer::disable) //CSRF 비활성화
             .sessionManagement(session -> session.sessionCreationPolicy(
-                SessionCreationPolicy.STATELESS)) // 세션 사용 X
+                SessionCreationPolicy.STATELESS)) // 세션 사용 안 함
+            // 요청별 권한 설정
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/members/signup")
-                .permitAll() // 로그인, 회원가입은 인증 없이 접근 허용
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/members").permitAll()
+                // 로그인, 회원가입은 인증 없이 접근 허용
                 .anyRequest().authenticated() // 나머지는 인증 필요
             )
+            // 커스텀 JWT 필터를 스프링 시큐리티 필터 체인에 삽입 (UsernamePasswordAuthenticationFilter 이전)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
@@ -48,5 +54,16 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * AuthenticationManager 빈 등록
+     * <p>
+     * Controller에서 주입받아 authenticate(...) 호출하기 위함
+     */
+    @Bean
+    public AuthenticationManager authenticationManager(
+        AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
     }
 }

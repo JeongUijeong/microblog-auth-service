@@ -9,6 +9,7 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
@@ -32,8 +33,13 @@ public class JwtProvider {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    // JWT 토큰의 유효 기간
-    private static final long TOKEN_VALIDITY = 1000 * 60 * 60;
+    // JWT access 토큰의 유효 기간
+    @Value("${jwt.access-expiration-ms}")
+    private long accessExpirationMs;
+
+    // JWT refresh 토큰의 유효 기간
+    @Value("${jwt.refresh-expiration-ms}")
+    private long refreshExpirationMs;
 
     // 암호화 키 객체
     private Key key;
@@ -41,28 +47,43 @@ public class JwtProvider {
     // Bean 생성 후, 시크릿 키를 기반으로 Key 객체 초기화
     @PostConstruct
     public void init() {
-        this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * 사용자 ID를 기반으로 JWT 토큰 생성
+     * 사용자 ID와 Roles 를 기반으로 JWT 토큰 생성
      *
-     * @param memberId 사용자 식별자
-     * @param role     사용자 역할
      * @return JWT 문자열
      */
-    public String generateToken(Long memberId, String nickname, String role) {
+    public String generateAccessToken(String subject, List<String> roles) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + TOKEN_VALIDITY * 1000);
+        Date expiryDate = new Date(now.getTime() + accessExpirationMs);
 
         return Jwts.builder()
-            .setSubject(String.valueOf(memberId)) // JWT payload의 subject에 사용자 ID 저장
-            .claim("nickname", nickname) // 사용자 닉네임
-            .claim("role", role) // 사용자 역할
+            .setSubject(subject) // JWT payload의 subject에 사용자 ID 저장
+            .claim("roles", roles) // 사용자 역할
             .setIssuedAt(now) // 발급 시간
             .setExpiration(expiryDate) // 만료 시간
             .signWith(key, SignatureAlgorithm.HS256) // 서명 알고리즘과 키 설정
             .compact(); // JWT 문자열로 직렬화
+    }
+
+    /**
+     * Refresh Token 생성
+     * <p>
+     * - refresh token에도 jti를 넣어서 DB에 저장(회전/폐기용) - subject에는 Id
+     */
+    public String generateRefreshToken(String subject, String jti) {
+        Date now = new Date();
+        Date exp = new Date(now.getTime() + refreshExpirationMs);
+
+        return Jwts.builder()
+            .setSubject(subject)
+            .setId(jti) // 중요: jti 저장
+            .setIssuedAt(now)
+            .setExpiration(exp)
+            .signWith(key, SignatureAlgorithm.HS256)
+            .compact();
     }
 
     /**
@@ -94,16 +115,15 @@ public class JwtProvider {
                 .setSigningKey(key)          // 서명 키 설정
                 .build()
                 .parseClaimsJws(token);      // 실제로 토큰 파싱 시도
-
             return true;
         } catch (SecurityException | MalformedJwtException e) {
-            log.warn("JWT 포맷이 유효하지 않습니다.");
+            log.warn("Invalid JWT format.");
         } catch (ExpiredJwtException e) {
-            log.warn("JWT 토큰이 만료되었습니다.");
+            log.warn("JWT token has expired.");
         } catch (UnsupportedJwtException e) {
-            log.warn("지원되지 않는 JWT 토큰 입니다.");
+            log.warn("Unsupported JWT token.");
         } catch (IllegalArgumentException e) {
-            log.warn("JWT claims(페이로드) 문자열이 비어있습니다.");
+            log.warn("JWT claims payload is empty.");
         }
         return false;
     }
@@ -128,7 +148,7 @@ public class JwtProvider {
      * @param token JWT 문자열
      * @return Claims 객체
      */
-    private Claims parseClaims(String token) {
+    public Claims parseClaims(String token) {
         try {
             return Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -139,5 +159,19 @@ public class JwtProvider {
             // 토큰이 만료됐더라도 Claims는 꺼낼 수 있으므로 따로 처리
             return e.getClaims();
         }
+    }
+
+    /**
+     * refresh token에서 jti 얻기
+     */
+    public String getJti(String refreshToken) {
+        return parseClaims((refreshToken)).getId();
+    }
+
+    /**
+     * token의 subject (보통 userId 또는 email)
+     */
+    public String getSubject(String token) {
+        return parseClaims(token).getSubject();
     }
 }

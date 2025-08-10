@@ -13,6 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface MemberClient {
 
     // 내부 호출
-    @GetMapping("/interal/members")
+    @GetMapping("/internal/members")
     MemberResponse findByEmail(@RequestParam("email") String email);
 }

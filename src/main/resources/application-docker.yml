@@ -7,6 +7,18 @@ spring:
   cloud:
     discovery:
       enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/microblog
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create  # 처음: create / 개발 단계: update / 운영: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
 
 eureka:
   client:
@@ -17,3 +29,5 @@ eureka:
 
 jwt:
   secret: ${JWT_SECRET}
+  access-expiration-ms: ${ACCESS_EXPIRATION_MS}
+  refresh-expiration-ms: ${REFRESH_EXPIRATION_MS}
