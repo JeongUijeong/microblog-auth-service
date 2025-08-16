@@ -2,10 +2,12 @@ package com.uijeong.microblog.auth.config;
 
 import feign.Logger;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * Feign Client 의 커스텀 설정 정의 클래스
  */
+@Configuration
 public class FeignConfig {
 
     /**
