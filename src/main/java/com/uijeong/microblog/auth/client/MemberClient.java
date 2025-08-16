@@ -4,7 +4,7 @@ import com.uijeong.microblog.auth.config.FeignConfig;
 import com.uijeong.microblog.auth.dto.MemberResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable;
 
 /**
  * member-service의 사용자 조회 API 호출용 Feign Client
@@ -13,6 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface MemberClient {
 
     // 내부 호출
-    @GetMapping("/internal/members")
-    MemberResponse findByEmail(@RequestParam("email") String email);
+    @GetMapping("/internal/members/{email}")
+    MemberResponse findByEmail(@PathVariable("email") String email);
 }
