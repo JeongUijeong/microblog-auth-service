@@ -8,22 +8,21 @@ spring:
     discovery:
       enabled: true
   datasource:
-    url: jdbc:postgresql://localhost:5432/microblog
+    url: jdbc:postgresql://postgres:5432/microblog_db
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: create  # 처음: create / 개발 단계: update / 운영: validate
     show-sql: true
     properties:
       hibernate:
-        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 eureka:
   client:
     service-url:
-      defaultZone: http://discovery-server:8761/eureka
+      defaultZone: http://discovery-server:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
 
